@@ -1,6 +1,6 @@
 import scrapy
 
-from .reviewItem import ReviewItem
+from Crawler.reviewItem import ReviewItem
 
 class ReviewSpider(scrapy.Spider):
     name = 'reviews'
