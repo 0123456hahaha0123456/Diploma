@@ -2,7 +2,7 @@ import re
 from flask import Flask, request
 import telegram
 from telebot.credentials import bot_token, bot_user_name,URL
-
+from Crawler.process_reviews import process as reviewProcess
 
 global bot
 global TOKEN
@@ -36,9 +36,9 @@ def respond():
    else:
        try:
            # clear the message we got from any non alphabets
-           text = re.sub(r"\W", "_", text)
+           response = reviewProcess(text)
            
-           bot.sendMessage(chat_id=chat_id, text ="Tran Trung Duc " + text, reply_to_message_id=msg_id)
+           bot.sendMessage(chat_id=chat_id, text ="Tran Trung Duc " + response, reply_to_message_id=msg_id)
        except Exception:
            # if things went wrong
            bot.sendMessage(chat_id=chat_id, text="There was a problem in the name you used, please enter different name", reply_to_message_id=msg_id)
