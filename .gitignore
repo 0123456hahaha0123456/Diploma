@@ -1,2 +1,4 @@
 dipenv/*
+
+**/*.pyc
 **/__pycache__
