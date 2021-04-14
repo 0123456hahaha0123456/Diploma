@@ -1,6 +1,6 @@
 import scrapy
 import re
-from reviews_spider import ReviewSpider
+from .reviews_spider import ReviewSpider
 from scrapy.crawler import CrawlerProcess
 import json
 
