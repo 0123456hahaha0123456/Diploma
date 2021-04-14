@@ -1,4 +1,4 @@
 dipenv/*
-
+**/credentials.py
 **/*.pyc
 **/__pycache__
