@@ -112,6 +112,47 @@ def aspect_to_sents(sort_count_aspects=None, list_chunk_token=None):
         aspect_to_sents[aspect[0]] = summary_sents
 
 """
+    Input: reviews
+    output : List of chunk token
+"""
+def get_list_chunk_sents(reviews):
+    wordnet_lemmatizer = WordNetLemmatizer()
+    grammar = r"""
+                SENT: 
+                    {<DT>?<JJ>*<NN.*>+<V.*>*<DT>?<RB.*>?<JJ>+<.*>*}
+                    {<DT>?<NN.*><V.*><IN><CD>?<NN.*><.*>*}
+                """
+            # {<DT>?<JJ>*<NN.?>+<V.*>*<RB>?<JJ>+}
+    tree_list = []
+    for review in reviews.reviewBody:
+        sentence = preprocess(review)
+        sents = nltk.sent_tokenize(sentence)
+        for sent in sents:
+            words = nltk.word_tokenize(sent)
+            pos_tag = nltk.pos_tag(words)
+                
+            cp = nltk.RegexpParser(grammar)
+            result = cp.parse(pos_tag)
+
+            for subtree in result.subtrees():
+                if subtree.label() == 'SENT' or subtree.label()=='NP':
+                    tree_list.append(subtree)
+
+    list_chunk = []
+    for item in tree_list:
+        s = ""
+        for word_pos in item.leaves():
+            s = s + word_pos[0] + " "
+        list_chunk.append(s)
+
+    list_chunk_token = []
+    for s in list_chunk:
+        s_token = nltk.word_tokenize(s) 
+        list_chunk_token.append(s_token)
+
+    return list_chunk_token
+
+"""
     Find a list of sentences, which is dai dien cho nhung aspects
 """
 def max_sum_sim(doc_embedding, candidate_embeddings, candidates, top_n, nr_candidates):
@@ -143,7 +184,7 @@ class FaceExtraction:
         self.model_sent_trans = SentenceTransformer('paraphrase-distilroberta-base-v1')
         # Load nlp model english
         self.nlp = spacy.load("en_core_web_lg")
-        wordnet_lemmatizer = WordNetLemmatizer()
+       
 
     """
         Main function
@@ -168,55 +209,19 @@ class FaceExtraction:
                     "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than",
                     "too", "very", "s", "t", "can", "will", "just", "don", "should", "now"]
 
-        # ---------------------------------------------------
-        
-        grammar = r"""
-                SENT: 
-                    {<DT>?<JJ>*<NN.*>+<V.*>*<DT>?<RB.*>?<JJ>+<.*>*}
-                    {<DT>?<NN.*><V.*><IN><CD>?<NN.*><.*>*}
-                """
-                # {<DT>?<JJ>*<NN.?>+<V.*>*<RB>?<JJ>+}
-        tree_list = []
-
-        for review in reviews.reviewBody:
-            sentence = preprocess(review)
-            sents = nltk.sent_tokenize(sentence)
-            for sent in sents:
-                words = nltk.word_tokenize(sent)
-                pos_tag = nltk.pos_tag(words)
-            
-                cp = nltk.RegexpParser(grammar)
-                result = cp.parse(pos_tag)
-
-                for subtree in result.subtrees():
-                    if subtree.label() == 'SENT' or subtree.label()=='NP':
-                        tree_list.append(subtree)
-
-        # ------------------------------------------------------
-        list_chunk = []
-        for item in tree_list:
-            s = ""
-            for word_pos in item.leaves():
-                s = s + word_pos[0] + " "
-            list_chunk.append(s)
-
-        list_chunk_token = []
-        for s in list_chunk:
-            s_token = nltk.word_tokenize(s) 
-            list_chunk_token.append(s_token)
-
         # -------------------------------------------------------------
         # Using cosine_similarity to find 5 best sentences fit all others sentences for each aspect
         sort_count_aspects = get_list_of_aspects(self.nlp, stop_words, reviews)
+        list_chunk_token = get_list_chunk_sents(reviews)
         aspect_sents = aspect_to_sents(sort_count_aspects, list_chunk_token)
         
         top_n = 5
-        summary_reviews = ""
+        summary_reviews = {}
         for index,aspect in enumerate(aspect_sents):
             if index > 10:
                 return summary_reviews
             # summary_reviews = summary_reviews + aspect + '\n'
-
+            summary_reviews[aspect] = []
             values = aspect_sents[aspect]
             if len(values) == 0:
                 continue
@@ -228,7 +233,9 @@ class FaceExtraction:
             sents_embedding = self.model_sent_trans.encode(values)
 
             max_sum_sents = max_sum_sim(doc_embedding, sents_embedding, values, min(len(values),top_n), min(len(values),20))
-            # for sent in max_sum_sents:
-            #     summary_reviews = summary_reviews + sent + '\n'
-            if len(max_sum_sents) > 0 :
-                summary_reviews = summary_reviews + '<b>' + aspect + '</b>' + '\n' + max_sum_sents[0] + '\n'
+            # print(len(max_sum_sents))
+            if len(max_sum_sents)>0:
+                summary_reviews[aspect] = []
+                for sent in max_sum_sents:
+                    summary_reviews[aspect].append(sent)
+        return summary_reviews

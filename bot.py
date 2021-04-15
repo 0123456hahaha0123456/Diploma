@@ -4,8 +4,10 @@
 from telebot.credentials import bot_token
 from Crawler.process_reviews import process as reviewProcess
 from NLP.fact_extract import FaceExtraction
-
-
+import os
+import sys
+import time
+from threading import Thread
 """
 Simple Bot to reply to Telegram messages.
 
@@ -35,7 +37,7 @@ logger = logging.getLogger(__name__)
 def start(update, context):
     """Send a message when the command /start is issued."""
 
-    update.message.reply_text('Hi!')
+    update.message.reply_text('Hi! \n Welcome to reviews summary bot. Please input your product link to take overview !')
 
 
 def help(update, context):
@@ -47,13 +49,19 @@ def echo(update, context):
     """Echo the user message."""
     url = update.message.text
     file_data_path = reviewProcess(url)
-    
     response = fact_extraction.factExtract(file_data_path)
-    update.message.reply_text(response, parse_mode=ParseMode.HTML)
+    # print(type(response))
+    text = ""
+    for item in response:
+        text = '<b>' + item + '</b>'
+        text = text + '\n'
+        text = text + '\n'.join(response[item])
+        update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
 def error(update, context):
     """Log Errors caused by Updates."""
+    update.message.reply_text("Please correct your link. Keep calm and wait our server work on it")
     logger.warning('Update "%s" caused error "%s"', update, context.error)
 
 

@@ -2,10 +2,12 @@ import scrapy
 import re
 from Crawler.reviews_spider import ReviewSpider
 from scrapy.crawler import CrawlerProcess
+from scrapy.crawler import CrawlerRunner
 import json
 import os
-import pathlib
-import pandas as pd 
+import pathlib 
+from multiprocessing import Process, Queue
+from twisted.internet import reactor
 
 def get_code(url):
     sub = re.split(r'[/?]+',url)
@@ -19,14 +21,38 @@ def crawl_reviews(url):
     code = get_code(url)
     
     file_name = '{code}.csv'.format(code = code) 
-    path_file_name = pathlib.Path.cwd() + '/data/' + file_name
-    c = CrawlerProcess({
-        'USER_AGENT' : 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1847.131 Safari/537.36',
-        'FEED_FORMAT' : 'csv',
-        'FEED_URI' : path_file_name
-    })    
-    c.crawl(ReviewSpider, start_url = url)
-    c.start()
+    path_file_name = str(pathlib.Path.cwd()) +'/Crawler/data/' + file_name
+    
+    def f(q):
+        try:
+            # c = CrawlerProcess({
+            #     'USER_AGENT' : 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1847.131 Safari/537.36',
+            #     'FEED_FORMAT' : 'csv',
+            #     'FEED_URI' : path_file_name
+            # })    
+            # c.crawl(ReviewSpider, start_url = url)
+            # c.start(stop_after_crawl=False)
+            
+            # Use CrawlRunner
+            runner = CrawlerRunner({
+                'USER_AGENT' : 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1847.131 Safari/537.36',
+                'FEED_FORMAT' : 'csv',
+                'FEED_URI' : path_file_name
+            })    
+            deferred = runner.crawl(ReviewSpider, start_url = url)
+            deferred.addBoth(lambda _: reactor.stop())
+            reactor.run()
+            q.put(None)
+            # c.start(stop_after_crawl=False)
+        except Exception as e:
+            q.put(e)
+
+    q = Queue()
+    p = Process(target=f, args=(q,))
+    p.start()
+    q.get()
+    p.join()
+
     return path_file_name
 
 
